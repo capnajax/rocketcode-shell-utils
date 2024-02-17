@@ -1,0 +1,27 @@
+#!/bin/bash
+
+DIR=$(dirname ${BASH_SOURCE[0]})
+IS_TTY=false
+if [ -t 0 ]; then
+  IS_TTY=true
+fi
+
+if [ -z "$1" ]; then
+  (>&2 echo "Usage: rc <command>")
+  exit 1
+fi
+
+if [ -e "$DIR/commands/${1}" ]; then
+  cmd=$1
+  shift
+  if $IS_TTY; then
+    "$DIR/commands/${cmd}" $@ --tty
+  else
+    cat | "$DIR/commands/${cmd}" $@
+  fi
+else
+  (>&2 echo "$(basename $0): command \"$1\" not found.")
+  exit 1
+fi
+
+

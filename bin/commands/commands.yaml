@@ -1,0 +1,24 @@
+commands:
+  cert:
+    description: Manage certificates
+    commands:
+      check:
+        description: Check one or more certificates for validity
+        usage: check [options] [certificate [certificate ...]]
+global:
+  options:
+    - option: --debug
+      description: >
+        Show debug output.
+    - option: --help
+      description: Show help text for the command.
+    - options: --quiet
+      description: >
+        Show no output. Just get a status code.
+    - option: --tty
+      description: >
+        Says the caller is running in a TTY. This is used to determine whether
+        to use color in the output.
+    - option: --verbose
+      description: >
+        Show verbose output.

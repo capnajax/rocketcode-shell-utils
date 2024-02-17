@@ -1,0 +1,181 @@
+#!/bin/bash
+
+DIR=$(dirname ${BASH_SOURCE[0]})
+LIB=$DIR/../../lib
+
+##
+# @function checkCert
+# Checks the status of a certificate and prints the exiration date. If the
+# expiration is near, it'll also print a warning and return non-zero
+# @param certName {string} the name of the cert for logging
+# @param cert {string} the file of the cert to test
+# @return zero if the certificate is good for at least another 30 days, non-zero
+#   if not.
+function checkCert {
+  local highestError=0
+  local expiredCerts=()
+  local expiringCerts7Days=()
+  local expiringCerts30Days=()
+  local currentCerts=()
+
+  for cert in $@; do
+
+    local cert=$1
+    
+    local error=0
+
+    if ! cat ${cert} | openssl x509 -noout -checkend 0; then
+      expiredCerts+=($cert)
+    elif ! cat ${cert} | openssl x509 -noout -checkend 604800; then
+      expiringCerts7Days+=($cert)
+    elif ! cat ${cert} | openssl x509 -noout -checkend 2592000; then
+      expiringCerts30Days+=($cert)
+    else
+      currentCerts+=($cert)
+    fi
+  done
+
+  if [ ${#expiredCerts[@]} -gt 0 ]; then
+    if $isVerbose; then
+      if [ ${#expiredCerts[@]} -eq 1 ]; then
+        echo -e "\x1b[31mExpired Certificate:\x1b[0m"
+      else
+        echo -e "\x1b[31mExpired Certificates:\x1b[0m"
+      fi
+      for cert in ${expiredCerts[@]}; do
+        echo -e "  ${cert} - \x1b[36m$(certExpiryDate $cert)\x1b[0m"
+      done
+    fi
+    highestError=3
+  fi
+
+  if [ ${#expiringCerts7Days[@]} -gt 0 ]; then
+    if $isVerbose; then
+      if [ ${#expiringCerts7Days[@]} -eq 1 ]; then
+        echo -e "\x1b[33mExpiring Certificate (7 days):\x1b[0m"
+      else
+        echo -e "\x1b[33mExpiring Certificates (7 days):\x1b[0m"
+      fi
+      for cert in ${expiringCerts7Days[@]}; do
+        echo -e "  ${cert} - \x1b[36m$(certExpiryDate $cert)\x1b[0m"
+      done
+    fi
+    highestError=$(max $highestError 2)
+  fi
+
+  if [ ${#expiringCerts30Days[@]} -gt 0 ]; then
+    if $isVerbose; then
+      if [ ${#expiringCerts30Days[@]} -eq 1 ]; then
+        echo -e "\x1b[33mExpiring Certificate (30 days):\x1b[0m"
+      else
+        echo -e "\x1b[33mExpiring Certificates (30 days):\x1b[0m"
+      fi
+      for cert in ${expiringCerts30Days[@]}; do
+        echo -e "  ${cert} - \x1b[36m$(certExpiryDate $cert)\x1b[0m"
+      done
+    fi
+    highestError=$(max $highestError 1)
+  fi
+
+  if [ ${#currentCerts[@]} -gt 0 ]; then
+    if $isVerbose; then
+      if [ ${#currentCerts[@]} -eq 1 ]; then
+        echo -e "Current Certificate:"
+      else
+        echo -e "Current Certificates:"
+      fi
+      for cert in ${currentCerts[@]}; do
+        echo -e "  ${cert} - \x1b[36m$(certExpiryDate $cert)\x1b[0m"
+      done
+    fi
+  fi
+
+  if ! $isQuiet; then
+    if [ $# -eq 1 ]; then
+      if (( $highestError == 0 )); then
+        echo -e "\x1b[32mCertificate is current.\x1b[0m"
+      elif (( $highestError < 3 )); then
+        echo -e "\x1b[33mCertificate is expiring soon.\x1b[0m"
+      elif (( $highestError == 3 )); then
+        echo -e "\x1b[31mCertificate has expired.\x1b[0m"
+      fi
+    else
+      if (( $highestError == 0 )); then
+        echo -e "\x1b[32mAll certificates are current.\x1b[0m"
+      elif (( $highestError < 3 )); then
+        echo -e "\x1b[33mSome certificates are expiring soon.\x1b[0m"
+      elif (( $highestError == 3 )); then
+        echo -e "\x1b[31mSome certificates have expired.\x1b[0m"
+      fi
+    fi
+  fi
+
+  return $highestError
+}
+
+function certExpiryDate {
+  local cert=$1
+  cat ${cert} | openssl x509 -noout -enddate | sed -e \
+    "s/notAfter=\(.*\)/\1/" \
+    -e 's/  */ /g' -e 's/^\s+//' -e 's/\s+$//'
+}
+
+source $LIB/consumed-args.sh
+source $LIB/io.sh
+source $LIB/math.sh
+
+globalArgs true $@
+
+ioInit $@
+
+bareParms=()
+
+for arg in $(unconsumedArgs $@); do  
+  echo $arg
+  case $arg in
+  *)
+    bareParms+=($arg)
+    ;;
+  esac
+done
+
+# echo command: ${command}
+# echo bareParms: ${bareParms[@]}
+# echo consumedArgs: ${consumedArgs}
+# echo unconsumedArgs: $(unconsumedArgs $@)
+
+if $isHelp; then
+  echo "Usage: cert <command> [options] <cert>"
+  echo ""
+  echo "Commands:"
+  echo "  check - checks the status of a certificate"
+  echo ""
+  echo "Options:"
+  echo "  --help - prints this help message"
+  echo "  --quiet - suppresses all output"
+  echo "  --tty - forces color output"
+  echo "  --verbose - prints verbose output"
+  exit 0
+fi
+
+# echo isHelp = $isHelp
+# echo isVerbose = $isVerbose
+# echo isQuiet = $isQuiet
+# echo isTTY = $isTTY
+# echo command = $command
+# echo subCommand = $subCommand
+
+case $command in
+  check)
+    checkCert ${bareParms[@]}
+    ;;
+  *)
+    (>&2 echo "Unknown command: $case $command in
+")
+    exit 1
+    ;;
+esac
+
+
+
+
