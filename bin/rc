@@ -11,13 +11,15 @@ if [ -z "$1" ]; then
   exit 1
 fi
 
+source ${DIR}/lib/prerequisites.sh
+
 if [ -e "$DIR/commands/${1}" ]; then
   cmd=$1
   shift
   if $IS_TTY; then
     "$DIR/commands/${cmd}" $@ --tty
   else
-    cat | "$DIR/commands/${cmd}" $@
+    cat |"$DIR/commands/${cmd}" $@
   fi
 else
   (>&2 echo "$(basename $0): command \"$1\" not found.")

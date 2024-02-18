@@ -1,0 +1,64 @@
+#!/bin/bash
+
+DIR=$(dirname ${BASH_SOURCE[0]})
+LIB=$DIR/../lib
+
+source $LIB/consumed-args.sh
+source $LIB/io.sh
+source $LIB/math.sh
+
+globalArgs false $@
+
+ioInit $@
+
+pwd=$(pwd)
+
+bareParams=()
+
+for arg in $(unconsumedArgs $@); do  
+  case $arg in
+  *)
+    bareParams+=($arg)
+    ;;
+  esac
+done
+
+if $isHelp; then
+  echo "Usage: npm [options] [<path> [<path> [...]]]"
+  echo ""
+  echo "Options:"
+  echo "  --help - prints this help message"
+  echo "  --quiet - suppresses all output"
+  echo "  --tty - forces color output"
+  echo "  --verbose - prints verbose output"
+  exit 0
+fi
+
+if [ ${#bareParams[@]} -eq 0 ]; then
+  bareParams=("${pwd}")
+fi
+
+for arg in ${bareParams[@]}; do
+  cd ${arg}
+  if ! [ -e package.json ]; then
+    if ! $isQuiet; then
+      echo "No package.json found in ${arg}"
+    fi
+    continue;
+  fi
+
+  if [ -e node_modules ] && [ package-lock.json -nt package.json ]; then
+    if $isVerbose; then
+      echo "Skipping npm install in ${arg}"
+    fi
+  else
+    if ! $isQuiet; then
+      echo "Running npm install in ${arg}"
+    fi
+    npm install
+  fi
+  # back to the original directory first in case $arg is a relative path
+  cd ${pwd} 
+done
+
+exit 0
